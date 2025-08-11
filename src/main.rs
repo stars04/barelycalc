@@ -5,8 +5,6 @@ use iced::{Application,Task,Settings};
 use iced::widget::{text};
 use iced::{color,Element};
 use std::io;
-mod parser;
-mod ui;
 mod corefunctions;
 fn main() -> iced::Result {
     iced::application("Calculator", update, view)
