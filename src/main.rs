@@ -2,9 +2,10 @@
 //use std::f64::consts::{PI, E};
 //use std::collections::HashMap;
 use iced::widget::{button, column, container, row, text};
-use iced::{Application, Element, Settings, Task};
+use iced::{Application, Element, Length, Settings, Task};
 use std::io;
 mod corefunctions;
+
 fn main() -> iced::Result {
     iced::application("Calculator", update, view)
         .theme(|_s| iced::Theme::KanagawaDragon)
@@ -21,8 +22,18 @@ enum Message {
     InsertOperator(Operator),
     InsertNumber(i64),
     Calculate,
-    ClearBuffer,
+    ClearEverything,
     DecimalToggle,
+    FunctionToggle(Function),
+}
+
+#[derive(Debug, Clone)]
+enum Function {
+    Sin,
+    Cos,
+    Tan,
+    Exp,
+    Ln,
 }
 
 #[derive(Debug, Clone)]
@@ -38,12 +49,12 @@ struct Calculator {
     values: [f64; 2],
     is_dec: bool,
     is_op2: bool,
+    function: Option<Function>,
     buffer: Vec<i64>,
     decbuf: Vec<i64>,
     ops: Option<Operator>,
     result: f64,
     error: Option<Error>,
-    //theme: Theme,
 }
 
 impl Default for Calculator {
@@ -52,6 +63,7 @@ impl Default for Calculator {
             values: [0.0, 0.0],
             is_dec: false,
             is_op2: false,
+            function: None,
             buffer: Vec::new(),
             decbuf: Vec::new(),
             ops: None,
@@ -67,80 +79,87 @@ fn view(calculator: &Calculator) -> Element<Message> {
             row![
                 text(if calculator.result.is_nan() == true {
                     match calculator.is_op2 {
-                        false => calculator.values[0],
-                        true => calculator.values[1],
+                        false => display(&calculator.values[0], calculator.function.clone()),
+                        true => display(&calculator.values[1], calculator.function.clone()),
                     }
                 } else {
-                    calculator.result
+                    display(&calculator.result, calculator.function.clone())
                 })
-                .size(30)
-            ],
+                .size(60)
+            ]
+            .padding(10),
             row![
-                button(text("CE").size(20))
-                    .on_press(Message::ClearBuffer)
-                    .padding(10),
-                button(text("+/-").size(20)).padding(10),
-                button(text("%").size(20)).padding(10),
-                button(text("x").size(20))
-                    .on_press(Message::InsertOperator(Operator::Mul))
-                    .padding(10),
+                button(text("sin(x)").size(20)).on_press(Message::FunctionToggle(Function::Sin)),
+                button(text("cos(x)").size(20)).on_press(Message::FunctionToggle(Function::Cos)),
+                button(text("tan(x)").size(20)).on_press(Message::FunctionToggle(Function::Tan)),
             ]
             .spacing(3),
             row![
-                button(text("7").size(20))
-                    .on_press(Message::InsertNumber(7))
-                    .padding(10),
-                button(text("8").size(20))
-                    .on_press(Message::InsertNumber(8))
-                    .padding(10),
-                button(text("9").size(20))
-                    .on_press(Message::InsertNumber(9))
-                    .padding(10),
-                button(text("/").size(20))
-                    .on_press(Message::InsertOperator(Operator::Div))
-                    .padding(10),
+                button(text("CE").size(40))
+                    .width(Length::Fixed(102.5))
+                    .on_press(Message::ClearEverything),
+                button(text("%").size(40)).width(Length::Fixed(52.5)),
+                button(text("x").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertOperator(Operator::Mul)),
             ]
             .spacing(3),
             row![
-                button(text("4").size(20))
-                    .on_press(Message::InsertNumber(4))
-                    .padding(10),
-                button(text("5").size(20))
-                    .on_press(Message::InsertNumber(5))
-                    .padding(10),
-                button(text("6").size(20))
-                    .on_press(Message::InsertNumber(6))
-                    .padding(10),
-                button(text("-").size(20))
-                    .on_press(Message::InsertOperator(Operator::Sub))
-                    .padding(10),
+                button(text("7").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(7)),
+                button(text("8").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(8)),
+                button(text("9").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(9)),
+                button(text("/").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertOperator(Operator::Div)),
             ]
             .spacing(3),
             row![
-                button(text("1").size(20))
-                    .on_press(Message::InsertNumber(1))
-                    .padding(10),
-                button(text("2").size(20))
-                    .on_press(Message::InsertNumber(2))
-                    .padding(10),
-                button(text("3").size(20))
-                    .on_press(Message::InsertNumber(3))
-                    .padding(10),
-                button(text("+").size(20))
-                    .on_press(Message::InsertOperator(Operator::Add))
-                    .padding(10),
+                button(text("4").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(4)),
+                button(text("5").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(5)),
+                button(text("6").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(6)),
+                button(text("-").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertOperator(Operator::Sub)),
             ]
             .spacing(3),
             row![
-                button(text("0").size(20))
-                    .on_press(Message::InsertNumber(0))
-                    .padding(10),
-                button(text(".").size(20))
-                    .on_press(Message::DecimalToggle)
-                    .padding(10),
-                button(text("=").size(20))
-                    .on_press(Message::Calculate)
-                    .padding(10),
+                button(text("1").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(1)),
+                button(text("2").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(2)),
+                button(text("3").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(3)),
+                button(text("+").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertOperator(Operator::Add)),
+            ]
+            .spacing(3),
+            row![
+                button(text("±").size(40)).width(Length::Fixed(50.0)),
+                button(text("0").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::InsertNumber(0)),
+                button(text(".").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::DecimalToggle),
+                button(text("=").size(40))
+                    .width(Length::Fixed(50.0))
+                    .on_press(Message::Calculate),
             ]
             .spacing(3),
         ]
@@ -180,6 +199,10 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             }
             Task::none()
         }
+        Message::FunctionToggle(Function) => {
+            calculator.function = Some(Function);
+            Task::none()
+        }
         Message::DecimalToggle => {
             match calculator.is_dec {
                 false => calculator.is_dec = true,
@@ -187,10 +210,13 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             }
             Task::none()
         }
-        Message::ClearBuffer => {
-            calculator.values = [0.0, f64::NAN];
+        Message::ClearEverything => {
+            calculator.values = [0.0, 0.0];
             calculator.buffer = Vec::new();
             calculator.decbuf = Vec::new();
+            calculator.result = f64::NAN;
+            calculator.ops = None;
+            calculator.function = None;
             calculator.is_op2 = false;
             calculator.is_dec = false;
             Task::none()
@@ -223,6 +249,17 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             }
             Task::none()
         }
+    }
+}
+
+fn display(value: &f64, function: Option<Function>) -> String {
+    match function {
+        Some(Function::Sin) => format!("sin({value})"),
+        Some(Function::Cos) => format!("cos({value})"),
+        Some(Function::Tan) => format!("tan({value})"),
+        Some(Function::Exp) => format!("exp({value})"),
+        Some(Function::Ln) => format!("ln({value})"),
+        _ => format!("{value}"),
     }
 }
 
