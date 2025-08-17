@@ -2,6 +2,7 @@ use libm::{cos, exp, log, sin, tan};
 use std::f64::consts::PI;
 //use std::collections::HashMap;
 use corefunctions::round;
+use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{button, column, container, row, text};
 use iced::{Application, Element, Length, Settings, Task};
 use std::io;
@@ -9,6 +10,7 @@ mod corefunctions;
 
 fn main() -> iced::Result {
     iced::application("Calculator", update, view)
+        .window_size(iced::Size::new(310.0, 505.0))
         .theme(|_s| iced::Theme::KanagawaDragon)
         .run()
 }
@@ -75,7 +77,7 @@ impl Default for Calculator {
 fn view(calculator: &Calculator) -> Element<Message> {
     container(
         column![
-            row![
+            row![container(
                 text(if calculator.result.is_nan() == true {
                     match &calculator.ops {
                         None => display(&calculator.values[0], calculator.function.clone()),
@@ -86,80 +88,91 @@ fn view(calculator: &Calculator) -> Element<Message> {
                 } else {
                     display(&calculator.result, calculator.function.clone())
                 })
-                .size(60)
-            ]
+                .size(50)
+                .align_x(Horizontal::Right)
+                .width(Length::Fixed(280.0))
+            )]
             .padding(10),
             row![
-                button(text("sin(x)").size(20)).on_press(Message::FunctionToggle(Function::Sin)),
-                button(text("cos(x)").size(20)).on_press(Message::FunctionToggle(Function::Cos)),
-                button(text("tan(x)").size(20)).on_press(Message::FunctionToggle(Function::Tan)),
+                button(text("sin(x)").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Sin)),
+                button(text("cos(x)").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Cos)),
+                button(text("tan(x)").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Tan)),
+                button(text("exp(x)").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Exp)),
             ]
             .spacing(3),
             row![
                 button(text("CE").size(40))
-                    .width(Length::Fixed(102.5))
+                    .width(Length::Fixed(142.5))
                     .on_press(Message::ClearEverything),
-                button(text("%").size(40)).width(Length::Fixed(52.5)),
-                button(text("x").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("%").size(40).align_x(Horizontal::Center)).width(Length::Fixed(70.0)),
+                button(text("x").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertOperator(Operator::Mul)),
             ]
             .spacing(3),
             row![
-                button(text("7").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("7").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(7)),
-                button(text("8").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("8").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(8)),
-                button(text("9").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("9").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(9)),
-                button(text("/").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("/").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertOperator(Operator::Div)),
             ]
             .spacing(3),
             row![
-                button(text("4").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("4").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(4)),
-                button(text("5").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("5").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(5)),
-                button(text("6").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("6").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(6)),
-                button(text("-").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("-").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertOperator(Operator::Sub)),
             ]
             .spacing(3),
             row![
-                button(text("1").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("1").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(1)),
-                button(text("2").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("2").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(2)),
-                button(text("3").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("3").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(3)),
-                button(text("+").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("+").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertOperator(Operator::Add)),
             ]
             .spacing(3),
             row![
-                button(text("±").size(40)).width(Length::Fixed(50.0)),
-                button(text("0").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("±").size(40).align_x(Horizontal::Center)).width(Length::Fixed(70.0)),
+                button(text("0").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(0)),
-                button(text(".").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text(".").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::DecimalToggle),
-                button(text("=").size(40))
-                    .width(Length::Fixed(50.0))
+                button(text("=").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
                     .on_press(Message::Calculate),
             ]
             .spacing(3),
@@ -264,7 +277,6 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
         }
     }
 }
-
 fn angle(degrees: f64) -> f64 {
     degrees * (PI / 180.0)
 }
