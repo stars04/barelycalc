@@ -23,7 +23,7 @@ enum Error {
 #[derive(Debug, Clone)]
 enum Message {
     InsertOperator(Operator),
-    InsertNumber(i64),
+    InsertNumber(i128),
     Calculate,
     ClearEverything,
     DecimalToggle,
@@ -48,12 +48,12 @@ enum Operator {
 }
 
 #[derive(Debug)]
-struct Calculator {
+pub struct Calculator {
     values: [f64; 2],
     is_dec: bool,
     function: Option<Function>,
-    buffer: Vec<i64>,
-    decbuf: Vec<i64>,
+    buffer: Vec<i128>,
+    decbuf: Vec<i128>,
     ops: Option<Operator>,
     result: f64,
     error: Option<Error>,
@@ -80,13 +80,11 @@ fn view(calculator: &Calculator) -> Element<Message> {
             row![container(
                 text(if calculator.result.is_nan() == true {
                     match &calculator.ops {
-                        None => display(&calculator.values[0], calculator.function.clone()),
-                        Some(Operator) => {
-                            display(&calculator.values[1], calculator.function.clone())
-                        }
+                        None => display(&calculator.values[0], &calculator.function),
+                        Some(Operator) => display(&calculator.values[1], &calculator.function),
                     }
                 } else {
-                    display(&calculator.result, calculator.function.clone())
+                    display(&calculator.result, &calculator.function)
                 })
                 .size(50)
                 .align_x(Horizontal::Right)
@@ -185,28 +183,45 @@ fn view(calculator: &Calculator) -> Element<Message> {
 
 fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
     match message {
-        Message::InsertNumber(i64) => {
+        Message::InsertNumber(i128) => {
             match &calculator.ops {
                 None => {
                     if calculator.is_dec == false {
-                        calculator.buffer.push(i64);
-                        calculator.values[0] =
-                            calculator.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
+                        calculator.buffer.push(i128);
+                        calculator.values[0] = match vector_to_value(&calculator.buffer) {
+                            Ok(f64) => f64,
+                            Err(err) => {
+                                println!("{:?}", err);
+                                f64::INFINITY
+                            }
+                        };
                     } else {
-                        calculator.decbuf.push(i64);
+                        calculator.decbuf.push(i128);
                         calculator.values[0] =
-                            decimal_value(&calculator.buffer, &calculator.decbuf);
+                            match decimal_value(&calculator.buffer, &calculator.decbuf) {
+                                Ok(f64) => f64,
+                                Err(err) => {
+                                    println!("{:?}", err);
+                                    f64::INFINITY
+                                }
+                            };
                     }
                 }
                 Some(Operator) => {
                     if calculator.is_dec == false {
-                        calculator.buffer.push(i64);
+                        calculator.buffer.push(i128);
                         calculator.values[1] =
                             calculator.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
                     } else {
-                        calculator.decbuf.push(i64);
+                        calculator.decbuf.push(i128);
                         calculator.values[1] =
-                            decimal_value(&calculator.buffer, &calculator.decbuf);
+                            match decimal_value(&calculator.buffer, &calculator.decbuf) {
+                                Ok(f64) => f64,
+                                Err(err) => {
+                                    println!("{:?}", err);
+                                    f64::INFINITY
+                                }
+                            };
                     }
                 }
             }
@@ -244,30 +259,63 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
         Message::Calculate => {
             match calculator.ops {
                 Some(Operator::Add) => {
-                    calculator.result = function_calculation(
-                        calculator.function.clone(),
+                    calculator.result = match function_calculation(
+                        &calculator.function,
                         calculator.values[0] + calculator.values[1],
-                    )
+                    ) {
+                        Ok(f64) => f64,
+                        Err(err) => {
+                            println!("{:?}", err);
+                            f64::INFINITY
+                        }
+                    }
                 }
                 Some(Operator::Sub) => {
-                    calculator.result = function_calculation(
-                        calculator.function.clone(),
+                    calculator.result = match function_calculation(
+                        &calculator.function,
                         calculator.values[0] - calculator.values[1],
-                    )
+                    ) {
+                        Ok(f64) => f64,
+                        Err(err) => {
+                            println!("{:?}", err);
+                            f64::INFINITY
+                        }
+                    }
                 }
                 Some(Operator::Mul) => {
-                    calculator.result = function_calculation(
-                        calculator.function.clone(),
+                    calculator.result = match function_calculation(
+                        &calculator.function,
                         calculator.values[0] * calculator.values[1],
-                    )
+                    ) {
+                        Ok(f64) => f64,
+                        Err(err) => {
+                            println!("{:?}", err);
+                            f64::INFINITY
+                        }
+                    }
                 }
                 Some(Operator::Div) => {
-                    calculator.result = function_calculation(
-                        calculator.function.clone(),
+                    calculator.result = match function_calculation(
+                        &calculator.function,
                         calculator.values[0] / calculator.values[1],
-                    )
+                    ) {
+                        Ok(f64) => f64,
+                        Err(err) => {
+                            println!("{:?}", err);
+                            f64::INFINITY
+                        }
+                    }
                 }
-                _ => calculator.result = f64::NAN,
+                _ => {
+                    calculator.result =
+                        match function_calculation(&calculator.function, calculator.values[0]) {
+                            Ok(f64) => f64,
+                            Err(err) => {
+                                println!("{:?}", err);
+                                f64::INFINITY
+                            }
+                        }
+                }
             }
             calculator.values[0] = calculator.result;
             calculator.values[1] = 0.0;
@@ -281,35 +329,52 @@ fn angle(degrees: f64) -> f64 {
     degrees * (PI / 180.0)
 }
 
-fn function_calculation(func: Option<Function>, value: f64) -> f64 {
+fn function_calculation(func: &Option<Function>, value: f64) -> Result<f64, Error> {
     let calc_result = match func {
-        Some(Function::Sin) => round(sin(angle(value))),
-        Some(Function::Cos) => round(cos(angle(value))),
-        Some(Function::Tan) => round(sin(angle(value))) / round(cos(angle(value))),
-        Some(Function::Exp) => exp(value),
-        Some(Function::Ln) => log(value),
-        None => value,
+        Some(Function::Sin) => Ok(round(sin(angle(value)))),
+        Some(Function::Cos) => Ok(round(cos(angle(value)))),
+        Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
+        Some(Function::Exp) => Ok(exp(value)),
+        Some(Function::Ln) => Ok(log(value)),
+        None => Ok(value),
     };
     calc_result
 }
 
-fn display(value: &f64, function: Option<Function>) -> String {
+fn display(value: &f64, function: &Option<Function>) -> String {
     match function {
         Some(Function::Sin) => format!("sin({value})"),
         Some(Function::Cos) => format!("cos({value})"),
         Some(Function::Tan) => format!("tan({value})"),
         Some(Function::Exp) => format!("exp({value})"),
         Some(Function::Ln) => format!("ln({value})"),
-        _ => format!("{value}"),
+        None => format!("{value}"),
     }
 }
 
-fn decimal_value(vector_1: &Vec<i64>, vector_2: &Vec<i64>) -> f64 {
-    let power_of_ten: f64 = 10_i64.pow(vector_2.len() as u32) as f64;
-    let mut decimal_values = vector_2.iter().fold(0, |acc, x| acc * 10 + x) as f64;
+fn vector_to_value(vector: &Vec<i128>) -> Result<f64, Error> {
+    Ok(vector.iter().fold(0, |acc, x| acc * 10 + x) as f64)
+}
+
+fn decimal_value(vector_1: &Vec<i128>, vector_2: &Vec<i128>) -> Result<f64, Error> {
+    let main_values = match vector_to_value(vector_1) {
+        Ok(f64) => f64,
+        Err(err) => {
+            println!("{:?}", err);
+            f64::INFINITY
+        }
+    };
+    let mut decimal_values = match vector_to_value(vector_2) {
+        Ok(f64) => f64,
+        Err(err) => {
+            println!("{:?}", err);
+            f64::INFINITY
+        }
+    };
+
+    let power_of_ten: f64 = 10_i128.pow(vector_2.len() as u32) as f64;
     decimal_values = decimal_values / power_of_ten;
-    let main_values = vector_1.iter().fold(0, |acc, x| acc * 10 + x) as f64;
-    main_values + decimal_values
+    Ok(main_values + decimal_values)
 }
 
 //fn value_to_insert(buffer_value: Option<f64>, decbuffer_value: Option<f64>) -> f64 {
