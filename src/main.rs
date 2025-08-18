@@ -51,11 +51,11 @@ enum Operator {
 pub struct Calculator {
     values: [f64; 2],
     is_dec: bool,
-    function: Option<Function>,
     buffer: Vec<i128>,
     decbuf: Vec<i128>,
-    ops: Option<Operator>,
     result: f64,
+    function: Option<Function>,
+    ops: Option<Operator>,
     error: Option<Error>,
 }
 
@@ -191,7 +191,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                         calculator.values[0] = match vector_to_value(&calculator.buffer) {
                             Ok(f64) => f64,
                             Err(err) => {
-                                println!("{:?}", err);
+                                calculator.error = Some(err);
                                 f64::INFINITY
                             }
                         };
@@ -201,7 +201,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                             match decimal_value(&calculator.buffer, &calculator.decbuf) {
                                 Ok(f64) => f64,
                                 Err(err) => {
-                                    println!("{:?}", err);
+                                    calculator.error = Some(err);
                                     f64::INFINITY
                                 }
                             };
@@ -218,7 +218,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                             match decimal_value(&calculator.buffer, &calculator.decbuf) {
                                 Ok(f64) => f64,
                                 Err(err) => {
-                                    println!("{:?}", err);
+                                    calculator.error = Some(err);
                                     f64::INFINITY
                                 }
                             };
@@ -265,7 +265,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                     ) {
                         Ok(f64) => f64,
                         Err(err) => {
-                            println!("{:?}", err);
+                            calculator.error = Some(err);
                             f64::INFINITY
                         }
                     }
@@ -277,7 +277,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                     ) {
                         Ok(f64) => f64,
                         Err(err) => {
-                            println!("{:?}", err);
+                            calculator.error = Some(err);
                             f64::INFINITY
                         }
                     }
@@ -289,7 +289,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                     ) {
                         Ok(f64) => f64,
                         Err(err) => {
-                            println!("{:?}", err);
+                            calculator.error = Some(err);
                             f64::INFINITY
                         }
                     }
@@ -301,7 +301,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                     ) {
                         Ok(f64) => f64,
                         Err(err) => {
-                            println!("{:?}", err);
+                            calculator.error = Some(err);
                             f64::INFINITY
                         }
                     }
@@ -311,7 +311,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                         match function_calculation(&calculator.function, calculator.values[0]) {
                             Ok(f64) => f64,
                             Err(err) => {
-                                println!("{:?}", err);
+                                calculator.error = Some(err);
                                 f64::INFINITY
                             }
                         }
