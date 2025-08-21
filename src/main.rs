@@ -36,6 +36,7 @@ enum Function {
     Cos,
     Tan,
     Exp,
+    Percent,
     Ln,
 }
 
@@ -54,6 +55,7 @@ pub struct Calculator {
     buffer: Vec<i128>,
     decbuf: Vec<i128>,
     result: f64,
+    display_result: String,
     function: Option<Function>,
     ops: Option<Operator>,
     error: Option<Error>,
@@ -69,6 +71,7 @@ impl Default for Calculator {
             decbuf: Vec::new(),
             ops: None,
             result: f64::NAN,
+            display_result: String::from("0"),
             error: None,
         }
     }
@@ -78,17 +81,10 @@ fn view(calculator: &Calculator) -> Element<Message> {
     container(
         column![
             row![container(
-                text(if calculator.result.is_nan() == true {
-                    match &calculator.ops {
-                        None => display(&calculator.values[0], &calculator.function),
-                        Some(Operator) => display(&calculator.values[1], &calculator.function),
-                    }
-                } else {
-                    display(&calculator.result, &calculator.function)
-                })
-                .size(50)
-                .align_x(Horizontal::Right)
-                .width(Length::Fixed(280.0))
+                text(&calculator.display_result)
+                    .size(50)
+                    .align_x(Horizontal::Right)
+                    .width(Length::Fixed(280.0))
             )]
             .padding(10),
             row![
@@ -110,7 +106,9 @@ fn view(calculator: &Calculator) -> Element<Message> {
                 button(text("CE").size(40))
                     .width(Length::Fixed(142.5))
                     .on_press(Message::ClearEverything),
-                button(text("%").size(40).align_x(Horizontal::Center)).width(Length::Fixed(70.0)),
+                button(text("%").size(40).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Percent)),
                 button(text("x").size(40).align_x(Horizontal::Center))
                     .width(Length::Fixed(70.0))
                     .on_press(Message::InsertOperator(Operator::Mul)),
@@ -210,8 +208,13 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                 Some(Operator) => {
                     if calculator.is_dec == false {
                         calculator.buffer.push(i128);
-                        calculator.values[1] =
-                            calculator.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
+                        calculator.values[1] = match vector_to_value(&calculator.buffer) {
+                            Ok(f64) => f64,
+                            Err(err) => {
+                                calculator.error = Some(err);
+                                f64::INFINITY
+                            }
+                        };
                     } else {
                         calculator.decbuf.push(i128);
                         calculator.values[1] =
@@ -225,10 +228,12 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                     }
                 }
             }
+            calculator.display();
             Task::none()
         }
         Message::FunctionToggle(Function) => {
             calculator.function = Some(Function);
+            calculator.display();
             Task::none()
         }
         Message::DecimalToggle => {
@@ -243,6 +248,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             calculator.buffer = Vec::new();
             calculator.decbuf = Vec::new();
             calculator.result = f64::NAN;
+            calculator.display_result = String::from("0");
             calculator.ops = None;
             calculator.function = None;
             calculator.is_dec = false;
@@ -257,66 +263,8 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::Calculate => {
-            match calculator.ops {
-                Some(Operator::Add) => {
-                    calculator.result = match function_calculation(
-                        &calculator.function,
-                        calculator.values[0] + calculator.values[1],
-                    ) {
-                        Ok(f64) => f64,
-                        Err(err) => {
-                            calculator.error = Some(err);
-                            f64::INFINITY
-                        }
-                    }
-                }
-                Some(Operator::Sub) => {
-                    calculator.result = match function_calculation(
-                        &calculator.function,
-                        calculator.values[0] - calculator.values[1],
-                    ) {
-                        Ok(f64) => f64,
-                        Err(err) => {
-                            calculator.error = Some(err);
-                            f64::INFINITY
-                        }
-                    }
-                }
-                Some(Operator::Mul) => {
-                    calculator.result = match function_calculation(
-                        &calculator.function,
-                        calculator.values[0] * calculator.values[1],
-                    ) {
-                        Ok(f64) => f64,
-                        Err(err) => {
-                            calculator.error = Some(err);
-                            f64::INFINITY
-                        }
-                    }
-                }
-                Some(Operator::Div) => {
-                    calculator.result = match function_calculation(
-                        &calculator.function,
-                        calculator.values[0] / calculator.values[1],
-                    ) {
-                        Ok(f64) => f64,
-                        Err(err) => {
-                            calculator.error = Some(err);
-                            f64::INFINITY
-                        }
-                    }
-                }
-                _ => {
-                    calculator.result =
-                        match function_calculation(&calculator.function, calculator.values[0]) {
-                            Ok(f64) => f64,
-                            Err(err) => {
-                                calculator.error = Some(err);
-                                f64::INFINITY
-                            }
-                        }
-                }
-            }
+            calculator.evaluate();
+            calculator.display();
             calculator.values[0] = calculator.result;
             calculator.values[1] = 0.0;
             calculator.ops = None;
@@ -325,6 +273,107 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
         }
     }
 }
+
+//Cause for concern is the continued displaying of the final result when formatted as a percent
+// To help address this,the path forward may be storing the 'final' result as a String and then clearing the actual result if needed
+// this would allow the String to be formatted however I like while not being dependent on the function variable and other things to store the state.
+// Generally even if the direct above doesn't solve the problem. Solution lies with altering disaplay final output such that it
+// does not depend on the state of function and other fields of the Calculator Struct
+
+impl Calculator {
+    fn display(&mut self) {
+        let mut _value = 0.0;
+        if self.result.is_nan() == true {
+            match &self.ops {
+                None => _value = self.values[0],
+                Some(Operator) => _value = self.values[1],
+            }
+            match &self.function {
+                Some(Function::Sin) => self.display_result = format!("sin({_value})"),
+                Some(Function::Cos) => self.display_result = format!("cos({_value})"),
+                Some(Function::Tan) => self.display_result = format!("tan({_value})"),
+                Some(Function::Exp) => self.display_result = format!("exp({_value})"),
+                Some(Function::Percent) => self.display_result = format!("{_value}%"),
+                Some(Function::Ln) => self.display_result = format!("ln({_value})"),
+                None => self.display_result = format!("{_value}"),
+            }
+        } else {
+            _value = self.result;
+            self.display_result = format!("{_value}");
+        };
+    }
+
+    fn evaluate(&mut self) {
+        let mut _calculator_result = match self.ops {
+            Some(Operator::Add) => Ok(self.values[0] + self.values[0]),
+            Some(Operator::Sub) => Ok(self.values[0] - self.values[0]),
+            Some(Operator::Mul) => Ok(self.values[0] * self.values[0]),
+            Some(Operator::Div) => Ok(self.values[0] / self.values[0]),
+            None => Ok(self.values[0]),
+        };
+        let value = match _calculator_result {
+            Ok(f64) => f64,
+            Err(err) => {
+                self.error = Some(err);
+                f64::INFINITY
+            }
+        };
+        let calc_result = match self.function {
+            Some(Function::Sin) => Ok(round(sin(angle(value)))),
+            Some(Function::Cos) => Ok(round(cos(angle(value)))),
+            Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
+            Some(Function::Exp) => Ok(exp(value)),
+            Some(Function::Percent) => Ok(value / 100.0),
+            Some(Function::Ln) => Ok(log(value)),
+            None => Ok(value),
+        };
+        self.result = match calc_result {
+            Ok(f64) => f64,
+            Err(err) => {
+                self.error = Some(err);
+                f64::INFINITY
+            }
+        };
+    }
+
+    fn vector_to_value(&mut self) {
+        //Need to implement this method in places where the old function was used
+        let vector_value_1: Result<f64, Error> =
+            Ok(self.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64);
+        let value_1 = match vector_value_1 {
+            Ok(f64) => f64,
+            Err(err) => {
+                self.error = Some(err);
+                f64::INFINITY
+            }
+        };
+        if self.is_dec == false {
+            match self.ops {
+                None => self.values[0] = value_1,
+                _ => self.values[1] = value_1,
+            }
+        } else {
+            let vector_value_2: Result<f64, Error> =
+                Ok(self.decbuf.iter().fold(0, |acc, x| acc * 10 + x) as f64);
+            let value_2 = match vector_value_2 {
+                Ok(f64) => f64,
+                Err(err) => {
+                    self.error = Some(err);
+                    f64::INFINITY
+                }
+            };
+            let power_of_ten: f64 = 10_i128.pow(self.decbuf.len() as u32) as f64;
+            let decimal_values = value_2 / power_of_ten;
+            let decimal_result = value_1 / decimal_values;
+
+            match self.ops {
+                None => self.values[0] = decimal_result,
+                _ => self.values[1] = decimal_result,
+            }
+        }
+    }
+}
+
 fn angle(degrees: f64) -> f64 {
     degrees * (PI / 180.0)
 }
@@ -335,6 +384,7 @@ fn function_calculation(func: &Option<Function>, value: f64) -> Result<f64, Erro
         Some(Function::Cos) => Ok(round(cos(angle(value)))),
         Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
         Some(Function::Exp) => Ok(exp(value)),
+        Some(Function::Percent) => Ok(value / 100.0),
         Some(Function::Ln) => Ok(log(value)),
         None => Ok(value),
     };
@@ -347,6 +397,7 @@ fn display(value: &f64, function: &Option<Function>) -> String {
         Some(Function::Cos) => format!("cos({value})"),
         Some(Function::Tan) => format!("tan({value})"),
         Some(Function::Exp) => format!("exp({value})"),
+        Some(Function::Percent) => format!("{value}%"),
         Some(Function::Ln) => format!("ln({value})"),
         None => format!("{value}"),
     }
@@ -376,7 +427,3 @@ fn decimal_value(vector_1: &Vec<i128>, vector_2: &Vec<i128>) -> Result<f64, Erro
     decimal_values = decimal_values / power_of_ten;
     Ok(main_values + decimal_values)
 }
-
-//fn value_to_insert(buffer_value: Option<f64>, decbuffer_value: Option<f64>) -> f64 {
-//    let value_1: f64 = match bu
-//}
