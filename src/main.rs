@@ -3,6 +3,8 @@ use std::f64::consts::PI;
 //use std::collections::HashMap;
 use corefunctions::round;
 use iced::alignment::{Horizontal, Vertical};
+use iced::event::{self, Status};
+use iced::keyboard::{Event::KeyPressed, Key, key::Named};
 use iced::widget::{button, column, container, row, text};
 use iced::{Application, Element, Length, Settings, Task};
 use std::io;
@@ -11,6 +13,7 @@ mod corefunctions;
 fn main() -> iced::Result {
     iced::application("Calculator", update, view)
         .window_size(iced::Size::new(310.0, 505.0))
+        .subscription(Calculator::subscription)
         .theme(|_s| iced::Theme::KanagawaDragon)
         .run()
 }
@@ -22,6 +25,7 @@ enum Error {
 
 #[derive(Debug, Clone)]
 enum Message {
+    KeyBoardButton(Key),
     InsertOperator(Operator),
     InsertNumber(i128),
     Calculate,
@@ -181,53 +185,68 @@ fn view(calculator: &Calculator) -> Element<Message> {
 
 fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
     match message {
-        Message::InsertNumber(i128) => {
-            match &calculator.ops {
-                None => {
-                    if calculator.is_dec == false {
-                        calculator.buffer.push(i128);
-                        calculator.values[0] = match vector_to_value(&calculator.buffer) {
-                            Ok(f64) => f64,
-                            Err(err) => {
-                                calculator.error = Some(err);
-                                f64::INFINITY
-                            }
-                        };
-                    } else {
-                        calculator.decbuf.push(i128);
-                        calculator.values[0] =
-                            match decimal_value(&calculator.buffer, &calculator.decbuf) {
-                                Ok(f64) => f64,
-                                Err(err) => {
-                                    calculator.error = Some(err);
-                                    f64::INFINITY
-                                }
-                            };
-                    }
+        Message::KeyBoardButton(key) => {
+            let value = match key.as_ref() {
+                Key::Character(c) => c,
+                Key::Named(Named::Enter) => "=",
+                _ => {
+                    println!("Non-Character Key Entered... Ignoring Input");
+                    "NONE"
                 }
-                Some(Operator) => {
-                    if calculator.is_dec == false {
-                        calculator.buffer.push(i128);
-                        calculator.values[1] = match vector_to_value(&calculator.buffer) {
-                            Ok(f64) => f64,
-                            Err(err) => {
-                                calculator.error = Some(err);
-                                f64::INFINITY
-                            }
-                        };
-                    } else {
-                        calculator.decbuf.push(i128);
-                        calculator.values[1] =
-                            match decimal_value(&calculator.buffer, &calculator.decbuf) {
-                                Ok(f64) => f64,
-                                Err(err) => {
-                                    calculator.error = Some(err);
-                                    f64::INFINITY
-                                }
-                            };
+            };
+            if value == "." {
+                calculator.is_dec = true;
+                calculator.display_result.push_str(value)
+            }
+            if "+-*/".contains(value) {
+                match value {
+                    "+" => calculator.ops = Some(Operator::Add),
+                    "-" => calculator.ops = Some(Operator::Sub),
+                    "*" => calculator.ops = Some(Operator::Mul),
+                    "/" => calculator.ops = Some(Operator::Div),
+                    _ => println!("No match in ops"),
+                }
+                calculator.buffer = Vec::new();
+                calculator.decbuf = Vec::new();
+                calculator.is_dec = false;
+                calculator.result = f64::NAN;
+            }
+            if value == "=" {
+                calculator.evaluate();
+                calculator.display();
+                calculator.values[0] = calculator.result;
+                calculator.values[1] = 0.0;
+                calculator.ops = None;
+                calculator.function = None;
+            } else if value != "NONE" {
+                match value.parse::<i128>() {
+                    Ok(i128) => {
+                        calculator.insert_value(i128);
+                        calculator.vector_to_value();
+                        calculator.display();
                     }
+                    Err(err) => println!("{:?}", err),
                 }
             }
+            println!("{:?}", value);
+            //match key.as_ref() {
+            //    Key::Character(C) => match C.parse::<i128>() {
+            //        Ok(i128) => {
+            //            calculator.insert_value(i128);
+            //            calculator.vector_to_value();
+            //            calculator.display();
+            //        }
+            //        Err(err) => println!("{:?}", err),
+            //    },
+            //    Key::Named(NameKey) => println!("{:?}", NameKey),
+            //    _ => println!("None"),
+            //}
+            //println!("{:?}", key);
+            Task::none()
+        }
+        Message::InsertNumber(i128) => {
+            calculator.insert_value(i128);
+            calculator.vector_to_value();
             calculator.display();
             Task::none()
         }
@@ -241,6 +260,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
                 false => calculator.is_dec = true,
                 true => calculator.is_dec = false,
             }
+            calculator.display_result.push_str(".0");
             Task::none()
         }
         Message::ClearEverything => {
@@ -319,9 +339,11 @@ impl Calculator {
             }
         };
         let calc_result = match self.function {
-            Some(Function::Sin) => Ok(round(sin(angle(value)))),
-            Some(Function::Cos) => Ok(round(cos(angle(value)))),
-            Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
+            Some(Function::Sin) => Ok(round(sin(self.angle(value)))),
+            Some(Function::Cos) => Ok(round(cos(self.angle(value)))),
+            Some(Function::Tan) => {
+                Ok(round(sin(self.angle(value))) / round(cos(self.angle(value))))
+            }
             Some(Function::Exp) => Ok(exp(value)),
             Some(Function::Percent) => Ok(value / 100.0),
             Some(Function::Ln) => Ok(log(value)),
@@ -336,94 +358,108 @@ impl Calculator {
         };
     }
 
+    fn angle(&self, degrees: f64) -> f64 {
+        degrees * (PI / 180.0)
+    }
+
+    fn insert_value(&mut self, integer: i128) {
+        match self.is_dec {
+            false => self.buffer.push(integer),
+            true => self.decbuf.push(integer),
+        }
+    }
+
     fn vector_to_value(&mut self) {
         //Need to implement this method in places where the old function was used
-        let vector_value_1: Result<f64, Error> =
-            Ok(self.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64);
-        let value_1 = match vector_value_1 {
-            Ok(f64) => f64,
-            Err(err) => {
-                self.error = Some(err);
-                f64::INFINITY
-            }
-        };
+        let value_1 = self.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
+
         if self.is_dec == false {
-            match self.ops {
+            match &self.ops {
                 None => self.values[0] = value_1,
-                _ => self.values[1] = value_1,
+                Some(Operator) => self.values[1] = value_1,
             }
         } else {
-            let vector_value_2: Result<f64, Error> =
-                Ok(self.decbuf.iter().fold(0, |acc, x| acc * 10 + x) as f64);
-            let value_2 = match vector_value_2 {
-                Ok(f64) => f64,
-                Err(err) => {
-                    self.error = Some(err);
-                    f64::INFINITY
-                }
-            };
+            let value_2 = self.decbuf.iter().fold(0, |acc, x| acc * 10 + x) as f64;
+
             let power_of_ten: f64 = 10_i128.pow(self.decbuf.len() as u32) as f64;
             let decimal_values = value_2 / power_of_ten;
-            let decimal_result = value_1 / decimal_values;
+            let decimal_result = value_1 + decimal_values;
 
-            match self.ops {
+            match &self.ops {
                 None => self.values[0] = decimal_result,
-                _ => self.values[1] = decimal_result,
+                Some(Operator) => self.values[1] = decimal_result,
             }
         }
     }
-}
 
-fn angle(degrees: f64) -> f64 {
-    degrees * (PI / 180.0)
-}
-
-fn function_calculation(func: &Option<Function>, value: f64) -> Result<f64, Error> {
-    let calc_result = match func {
-        Some(Function::Sin) => Ok(round(sin(angle(value)))),
-        Some(Function::Cos) => Ok(round(cos(angle(value)))),
-        Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
-        Some(Function::Exp) => Ok(exp(value)),
-        Some(Function::Percent) => Ok(value / 100.0),
-        Some(Function::Ln) => Ok(log(value)),
-        None => Ok(value),
-    };
-    calc_result
-}
-
-fn display(value: &f64, function: &Option<Function>) -> String {
-    match function {
-        Some(Function::Sin) => format!("sin({value})"),
-        Some(Function::Cos) => format!("cos({value})"),
-        Some(Function::Tan) => format!("tan({value})"),
-        Some(Function::Exp) => format!("exp({value})"),
-        Some(Function::Percent) => format!("{value}%"),
-        Some(Function::Ln) => format!("ln({value})"),
-        None => format!("{value}"),
+    fn subscription(&self) -> iced::Subscription<Message> {
+        event::listen_with(|event, status, _| match (event, status) {
+            (
+                iced::Event::Keyboard(KeyPressed {
+                    key: _,
+                    modified_key,
+                    physical_key: _,
+                    location: _,
+                    modifiers: _,
+                    text: _,
+                }),
+                Status::Ignored,
+            ) => Some(Message::KeyBoardButton(modified_key)),
+            _ => None,
+        })
     }
 }
 
-fn vector_to_value(vector: &Vec<i128>) -> Result<f64, Error> {
-    Ok(vector.iter().fold(0, |acc, x| acc * 10 + x) as f64)
-}
+//fn angle(degrees: f64) -> f64 {
+//    degrees * (PI / 180.0)
+//}
 
-fn decimal_value(vector_1: &Vec<i128>, vector_2: &Vec<i128>) -> Result<f64, Error> {
-    let main_values = match vector_to_value(vector_1) {
-        Ok(f64) => f64,
-        Err(err) => {
-            println!("{:?}", err);
-            f64::INFINITY
-        }
-    };
-    let mut decimal_values = match vector_to_value(vector_2) {
-        Ok(f64) => f64,
-        Err(err) => {
-            println!("{:?}", err);
-            f64::INFINITY
-        }
-    };
+//fn function_calculation(func: &Option<Function>, value: f64) -> Result<f64, Error> {
+//    let calc_result = match func {
+//        Some(Function::Sin) => Ok(round(sin(angle(value)))),
+//        Some(Function::Cos) => Ok(round(cos(angle(value)))),
+//        Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
+//        Some(Function::Exp) => Ok(exp(value)),
+//        Some(Function::Percent) => Ok(value / 100.0),
+//        Some(Function::Ln) => Ok(log(value)),
+//        None => Ok(value),
+//    };
+//    calc_result
+//}
 
-    let power_of_ten: f64 = 10_i128.pow(vector_2.len() as u32) as f64;
-    decimal_values = decimal_values / power_of_ten;
-    Ok(main_values + decimal_values)
-}
+//fn display(value: &f64, function: &Option<Function>) -> String {
+//    match function {
+//        Some(Function::Sin) => format!("sin({value})"),
+//        Some(Function::Cos) => format!("cos({value})"),
+//        Some(Function::Tan) => format!("tan({value})"),
+//        Some(Function::Exp) => format!("exp({value})"),
+//        Some(Function::Percent) => format!("{value}%"),
+//        Some(Function::Ln) => format!("ln({value})"),
+//        None => format!("{value}"),
+//    }
+//}
+//
+//fn vector_to_value(vector: &Vec<i128>) -> Result<f64, Error> {
+//    Ok(vector.iter().fold(0, |acc, x| acc * 10 + x) as f64)
+//}
+//
+//fn decimal_value(vector_1: &Vec<i128>, vector_2: &Vec<i128>) -> Result<f64, Error> {
+//    let main_values = match vector_to_value(vector_1) {
+//        Ok(f64) => f64,
+//        Err(err) => {
+//            println!("{:?}", err);
+//            f64::INFINITY
+//        }
+//    };
+//    let mut decimal_values = match vector_to_value(vector_2) {
+//        Ok(f64) => f64,
+//        Err(err) => {
+//            println!("{:?}", err);
+//            f64::INFINITY
+//        }
+//    };
+//
+//    let power_of_ten: f64 = 10_i128.pow(vector_2.len() as u32) as f64;
+//    decimal_values = decimal_values / power_of_ten;
+//    Ok(main_values + decimal_values)
+//}
