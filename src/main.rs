@@ -294,12 +294,6 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
     }
 }
 
-//Cause for concern is the continued displaying of the final result when formatted as a percent
-// To help address this,the path forward may be storing the 'final' result as a String and then clearing the actual result if needed
-// this would allow the String to be formatted however I like while not being dependent on the function variable and other things to store the state.
-// Generally even if the direct above doesn't solve the problem. Solution lies with altering disaplay final output such that it
-// does not depend on the state of function and other fields of the Calculator Struct
-
 impl Calculator {
     fn display(&mut self) {
         let mut _value = 0.0;
@@ -409,57 +403,3 @@ impl Calculator {
         })
     }
 }
-
-//fn angle(degrees: f64) -> f64 {
-//    degrees * (PI / 180.0)
-//}
-
-//fn function_calculation(func: &Option<Function>, value: f64) -> Result<f64, Error> {
-//    let calc_result = match func {
-//        Some(Function::Sin) => Ok(round(sin(angle(value)))),
-//        Some(Function::Cos) => Ok(round(cos(angle(value)))),
-//        Some(Function::Tan) => Ok(round(sin(angle(value))) / round(cos(angle(value)))),
-//        Some(Function::Exp) => Ok(exp(value)),
-//        Some(Function::Percent) => Ok(value / 100.0),
-//        Some(Function::Ln) => Ok(log(value)),
-//        None => Ok(value),
-//    };
-//    calc_result
-//}
-
-//fn display(value: &f64, function: &Option<Function>) -> String {
-//    match function {
-//        Some(Function::Sin) => format!("sin({value})"),
-//        Some(Function::Cos) => format!("cos({value})"),
-//        Some(Function::Tan) => format!("tan({value})"),
-//        Some(Function::Exp) => format!("exp({value})"),
-//        Some(Function::Percent) => format!("{value}%"),
-//        Some(Function::Ln) => format!("ln({value})"),
-//        None => format!("{value}"),
-//    }
-//}
-//
-//fn vector_to_value(vector: &Vec<i128>) -> Result<f64, Error> {
-//    Ok(vector.iter().fold(0, |acc, x| acc * 10 + x) as f64)
-//}
-//
-//fn decimal_value(vector_1: &Vec<i128>, vector_2: &Vec<i128>) -> Result<f64, Error> {
-//    let main_values = match vector_to_value(vector_1) {
-//        Ok(f64) => f64,
-//        Err(err) => {
-//            println!("{:?}", err);
-//            f64::INFINITY
-//        }
-//    };
-//    let mut decimal_values = match vector_to_value(vector_2) {
-//        Ok(f64) => f64,
-//        Err(err) => {
-//            println!("{:?}", err);
-//            f64::INFINITY
-//        }
-//    };
-//
-//    let power_of_ten: f64 = 10_i128.pow(vector_2.len() as u32) as f64;
-//    decimal_values = decimal_values / power_of_ten;
-//    Ok(main_values + decimal_values)
-//}
