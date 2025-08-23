@@ -8,7 +8,7 @@ use libm::{cos, exp, log, sin, tan};
 use std::f64::consts::PI;
 use std::io;
 mod corefunctions;
-
+//WIP
 fn main() -> iced::Result {
     iced::application("Calculator", update, view)
         .window_size(iced::Size::new(310.0, 505.0))
