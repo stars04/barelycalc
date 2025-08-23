@@ -56,6 +56,7 @@ enum Operator {
 pub struct Calculator {
     values: [f64; 2],
     is_dec: bool,
+    key_value: Option<Key>,
     buffer: Vec<i128>,
     decbuf: Vec<i128>,
     result: f64,
@@ -70,6 +71,7 @@ impl Default for Calculator {
         Calculator {
             values: [0.0, 0.0],
             is_dec: false,
+            key_value: None,
             function: None,
             buffer: Vec::new(),
             decbuf: Vec::new(),
@@ -186,72 +188,18 @@ fn view(calculator: &Calculator) -> Element<Message> {
 fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
     match message {
         Message::KeyBoardButton(key) => {
-            let value = match key.as_ref() {
-                Key::Character(c) => c,
-                Key::Named(Named::Enter) => "=",
-                _ => {
-                    println!("Non-Character Key Entered... Ignoring Input");
-                    "NONE"
-                }
-            };
-            if value == "." {
-                calculator.is_dec = true;
-                calculator.display_result.push_str(value)
-            }
-            if "+-*/".contains(value) {
-                match value {
-                    "+" => calculator.ops = Some(Operator::Add),
-                    "-" => calculator.ops = Some(Operator::Sub),
-                    "*" => calculator.ops = Some(Operator::Mul),
-                    "/" => calculator.ops = Some(Operator::Div),
-                    _ => println!("No match in ops"),
-                }
-                calculator.buffer = Vec::new();
-                calculator.decbuf = Vec::new();
-                calculator.is_dec = false;
-                calculator.result = f64::NAN;
-            }
-            if value == "=" {
-                calculator.evaluate();
-                calculator.display();
-                calculator.values[0] = calculator.result;
-                calculator.values[1] = 0.0;
-                calculator.ops = None;
-                calculator.function = None;
-            } else if value != "NONE" {
-                match value.parse::<i128>() {
-                    Ok(i128) => {
-                        calculator.insert_value(i128);
-                        calculator.vector_to_value();
-                        calculator.display();
-                    }
-                    Err(err) => println!("{:?}", err),
-                }
-            }
-            println!("{:?}", value);
-            //match key.as_ref() {
-            //    Key::Character(C) => match C.parse::<i128>() {
-            //        Ok(i128) => {
-            //            calculator.insert_value(i128);
-            //            calculator.vector_to_value();
-            //            calculator.display();
-            //        }
-            //        Err(err) => println!("{:?}", err),
-            //    },
-            //    Key::Named(NameKey) => println!("{:?}", NameKey),
-            //    _ => println!("None"),
-            //}
-            //println!("{:?}", key);
+            calculator.key_value = Some(key);
+            calculator.insert_or_remove_value(None);
             Task::none()
         }
         Message::InsertNumber(i128) => {
-            calculator.insert_value(i128);
+            calculator.insert_or_remove_value(Some(i128));
             calculator.vector_to_value();
             calculator.display();
             Task::none()
         }
-        Message::FunctionToggle(Function) => {
-            calculator.function = Some(Function);
+        Message::FunctionToggle(function) => {
+            calculator.function = Some(function);
             calculator.display();
             Task::none()
         }
@@ -274,12 +222,13 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             calculator.is_dec = false;
             Task::none()
         }
-        Message::InsertOperator(Operator) => {
-            calculator.ops = Some(Operator);
+        Message::InsertOperator(operator) => {
+            calculator.ops = Some(operator);
             calculator.buffer = Vec::new();
             calculator.decbuf = Vec::new();
             calculator.is_dec = false;
             calculator.result = f64::NAN;
+            calculator.display();
             Task::none()
         }
         Message::Calculate => {
@@ -287,6 +236,8 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             calculator.display();
             calculator.values[0] = calculator.result;
             calculator.values[1] = 0.0;
+            calculator.buffer = Vec::new();
+            calculator.decbuf = Vec::new();
             calculator.ops = None;
             calculator.function = None;
             Task::none()
@@ -296,11 +247,19 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
 
 impl Calculator {
     fn display(&mut self) {
-        let mut _value = 0.0;
+        let mut _value = String::new();
         if self.result.is_nan() == true {
             match &self.ops {
-                None => _value = self.values[0],
-                Some(Operator) => _value = self.values[1],
+                None => _value = format!("{}", self.values[0]),
+                Some(operator) => {
+                    let operator_string = match operator {
+                        Operator::Add => "+".to_string(),
+                        Operator::Sub => "-".to_string(),
+                        Operator::Mul => "x".to_string(),
+                        Operator::Div => "/".to_string(),
+                    };
+                    _value = format!("{} {operator_string} {}", self.values[0], self.values[1])
+                }
             }
             match &self.function {
                 Some(Function::Sin) => self.display_result = format!("sin({_value})"),
@@ -312,17 +271,17 @@ impl Calculator {
                 None => self.display_result = format!("{_value}"),
             }
         } else {
-            _value = self.result;
+            _value = format!("{}", self.result);
             self.display_result = format!("{_value}");
         };
     }
 
     fn evaluate(&mut self) {
         let mut _calculator_result = match self.ops {
-            Some(Operator::Add) => Ok(self.values[0] + self.values[0]),
-            Some(Operator::Sub) => Ok(self.values[0] - self.values[0]),
-            Some(Operator::Mul) => Ok(self.values[0] * self.values[0]),
-            Some(Operator::Div) => Ok(self.values[0] / self.values[0]),
+            Some(Operator::Add) => Ok(self.values[0] + self.values[1]),
+            Some(Operator::Sub) => Ok(self.values[0] - self.values[1]),
+            Some(Operator::Mul) => Ok(self.values[0] * self.values[1]),
+            Some(Operator::Div) => Ok(self.values[0] / self.values[1]),
             None => Ok(self.values[0]),
         };
         let value = match _calculator_result {
@@ -356,10 +315,103 @@ impl Calculator {
         degrees * (PI / 180.0)
     }
 
-    fn insert_value(&mut self, integer: i128) {
-        match self.is_dec {
-            false => self.buffer.push(integer),
-            true => self.decbuf.push(integer),
+    fn insert_or_remove_value(&mut self, integer: Option<i128>) {
+        match integer {
+            Some(i128) => match self.is_dec {
+                false => {
+                    self.buffer.push(i128);
+                    self.vector_to_value();
+                    self.display();
+                }
+                true => {
+                    self.decbuf.push(i128);
+                    self.vector_to_value();
+                    self.display();
+                }
+            },
+            None => match self.key_value.as_ref() {
+                Some(Key::Character(c)) => match c.parse::<i128>() {
+                    Ok(i128) => self.insert_or_remove_value(Some(i128)),
+                    Err(err) => {
+                        println!(
+                            "Not an integer when parsed {:?}\n checking if key is an operator",
+                            err
+                        );
+                        let possible_operator = match self.key_value.as_ref() {
+                            Some(Key::Character(c)) => c.as_ref(),
+                            _ => "",
+                        };
+                        if "+-*/".contains(possible_operator) {
+                            match possible_operator {
+                                "+" => self.ops = Some(Operator::Add),
+                                "-" => self.ops = Some(Operator::Sub),
+                                "*" => self.ops = Some(Operator::Mul),
+                                "/" => self.ops = Some(Operator::Div),
+                                _ => println!("No match in ops"),
+                            }
+                            self.buffer = Vec::new();
+                            self.decbuf = Vec::new();
+                            self.is_dec = false;
+                            self.result = f64::NAN;
+                            if possible_operator == "*" {
+                                self.display_result.push_str(&format!(" x"));
+                            } else {
+                                self.display_result
+                                    .push_str(&format!(" {}", possible_operator));
+                            }
+                        } else if possible_operator == "." {
+                            match self.is_dec {
+                                false => {
+                                    self.is_dec = true;
+                                    self.display_result.push_str(".0")
+                                }
+                                true => {
+                                    self.is_dec = false;
+                                }
+                            }
+                        }
+                    }
+                },
+                Some(Key::Named(Named::Backspace)) => {
+                    match self.is_dec {
+                        false => {
+                            self.buffer.pop();
+                            if self.buffer == [] && !self.ops.is_none() {
+                                self.ops = None;
+                            } else if self.buffer == []
+                                && self.ops.is_none()
+                                && self.values[0] == 0.0
+                            {
+                                self.function = None;
+                            } else {
+                                self.vector_to_value();
+                            }
+                        }
+                        true => {
+                            self.decbuf.pop();
+                            if self.decbuf == [] {
+                                self.is_dec = false;
+                            } else {
+                                self.vector_to_value();
+                            }
+                        }
+                    }
+                    self.display();
+                }
+                Some(Key::Named(Named::Enter)) => {
+                    self.evaluate();
+                    self.display();
+                    self.values[0] = self.result;
+                    self.values[1] = 0.0;
+                    self.buffer = Vec::new();
+                    self.decbuf = Vec::new();
+                    self.ops = None;
+                    self.function = None;
+                }
+                _ => {
+                    println!("No key was pressed");
+                }
+            },
         }
     }
 
@@ -367,12 +419,12 @@ impl Calculator {
         //Need to implement this method in places where the old function was used
         let value_1 = self.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
 
-        if self.is_dec == false {
+        if self.is_dec == false && self.decbuf == Vec::new() {
             match &self.ops {
                 None => self.values[0] = value_1,
-                Some(Operator) => self.values[1] = value_1,
+                Some(_operator) => self.values[1] = value_1,
             }
-        } else {
+        } else if self.is_dec == true || self.decbuf != Vec::new() {
             let value_2 = self.decbuf.iter().fold(0, |acc, x| acc * 10 + x) as f64;
 
             let power_of_ten: f64 = 10_i128.pow(self.decbuf.len() as u32) as f64;
@@ -381,7 +433,7 @@ impl Calculator {
 
             match &self.ops {
                 None => self.values[0] = decimal_result,
-                Some(Operator) => self.values[1] = decimal_result,
+                Some(_operator) => self.values[1] = decimal_result,
             }
         }
     }
