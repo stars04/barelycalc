@@ -1,12 +1,11 @@
-use libm::{cos, exp, log, sin, tan};
-use std::f64::consts::PI;
-//use std::collections::HashMap;
 use corefunctions::round;
 use iced::alignment::{Horizontal, Vertical};
 use iced::event::{self, Status};
 use iced::keyboard::{Event::KeyPressed, Key, key::Named};
 use iced::widget::{button, column, container, row, text};
 use iced::{Application, Element, Length, Settings, Task};
+use libm::{cos, exp, log, sin, tan};
+use std::f64::consts::PI;
 use std::io;
 mod corefunctions;
 
