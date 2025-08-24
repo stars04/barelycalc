@@ -3,7 +3,9 @@ use iced::alignment::{Horizontal, Vertical};
 use iced::event::{self, Status};
 use iced::keyboard::{Event::KeyPressed, Key, key::Named};
 use iced::widget::{button, column, container, row, text};
-use iced::{Application, Element, Length, Settings, Task};
+use iced::{Application, Border, Element, Font, Length, Renderer, Settings, Task};
+use iced_core::font;
+use iced_core::{Background, Color, Shadow, Theme, Vector, border, widget::text::Text};
 use libm::{cos, exp, log, sin, tan};
 use std::f64::consts::PI;
 use std::io;
@@ -27,6 +29,7 @@ enum Message {
     KeyBoardButton(Key),
     InsertOperator(Operator),
     InsertNumber(i128),
+    Negative,
     Calculate,
     ClearEverything,
     DecimalToggle,
@@ -55,6 +58,7 @@ enum Operator {
 pub struct Calculator {
     values: [f64; 2],
     is_dec: bool,
+    small_text: bool,
     key_value: Option<Key>,
     buffer: Vec<i128>,
     decbuf: Vec<i128>,
@@ -70,6 +74,7 @@ impl Default for Calculator {
         Calculator {
             values: [0.0, 0.0],
             is_dec: false,
+            small_text: false,
             key_value: None,
             function: None,
             buffer: Vec::new(),
@@ -81,17 +86,30 @@ impl Default for Calculator {
         }
     }
 }
-
+// KGD off white -> Some(Color::from_rgb(0.770, 0.785, 0.770))
 fn view(calculator: &Calculator) -> Element<Message> {
     container(
         column![
-            row![container(
-                text(&calculator.display_result)
-                    .size(50)
-                    .align_x(Horizontal::Right)
-                    .width(Length::Fixed(280.0))
-            )]
-            .padding(10),
+            row![
+                container(calculator.font_size_picker())
+                    .padding(5)
+                    .style(|_| container::Style {
+                        text_color: Some(Color::from_rgb(0.0, 0.0, 0.0)),
+                        background: Some(Background::Color(Color::from_rgb(0.656, 0.773, 0.305))),
+                        border: Border {
+                            color: Color::from_rgb(0.133, 0.195, 0.285),
+                            width: 5.0,
+                            radius: border::Radius {
+                                ..Default::default()
+                            },
+                        },
+                        shadow: Shadow {
+                            color: Color::from_rgb(50.0, 0.0, 0.0),
+                            offset: iced_core::Vector { x: 0.0, y: 0.0 },
+                            blur_radius: 0.0,
+                        },
+                    })
+            ],
             row![
                 button(text("sin(x)").size(18).align_x(Horizontal::Center))
                     .width(Length::Fixed(70.0))
@@ -165,7 +183,9 @@ fn view(calculator: &Calculator) -> Element<Message> {
             ]
             .spacing(3),
             row![
-                button(text("±").size(40).align_x(Horizontal::Center)).width(Length::Fixed(70.0)),
+                button(text("±").size(40).align_x(Horizontal::Center))
+                    .on_press(Message::Negative)
+                    .width(Length::Fixed(70.0)),
                 button(text("0").size(40).align_x(Horizontal::Center))
                     .width(Length::Fixed(70.0))
                     .on_press(Message::InsertNumber(0)),
@@ -202,6 +222,14 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             calculator.display();
             Task::none()
         }
+        Message::Negative => {
+            match &calculator.ops {
+                None => calculator.values[0] = calculator.values[0] * (-1.0),
+                Some(_operator) => calculator.values[1] = calculator.values[1] * (-1.0),
+            }
+            calculator.display();
+            Task::none()
+        }
         Message::DecimalToggle => {
             match calculator.is_dec {
                 false => calculator.is_dec = true,
@@ -219,6 +247,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             calculator.ops = None;
             calculator.function = None;
             calculator.is_dec = false;
+            calculator.small_text = false;
             Task::none()
         }
         Message::InsertOperator(operator) => {
@@ -239,6 +268,7 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
             calculator.decbuf = Vec::new();
             calculator.ops = None;
             calculator.function = None;
+            calculator.small_text = false;
             Task::none()
         }
     }
@@ -249,7 +279,20 @@ impl Calculator {
         let mut _value = String::new();
         if self.result.is_nan() == true {
             match &self.ops {
-                None => _value = format!("{}", self.values[0]),
+                None => {
+                    if format!("{}", self.values[0]).len() > 10 {
+                        _value = format!("{:.5e}", self.values[0]);
+                    } else if format!("{}", self.values[0]).len() > 5 && !self.function.is_none() {
+                        _value = format!("{:.5e}", self.values[0]);
+                        self.small_text = true;
+                    } else {
+                        if self.decbuf != [] {
+                            _value = format!("{:?}", self.values[0])
+                        } else {
+                            _value = format!("{}", self.values[0]);
+                        }
+                    }
+                }
                 Some(operator) => {
                     let operator_string = match operator {
                         Operator::Add => "+".to_string(),
@@ -257,7 +300,35 @@ impl Calculator {
                         Operator::Mul => "x".to_string(),
                         Operator::Div => "/".to_string(),
                     };
-                    _value = format!("{} {operator_string} {}", self.values[0], self.values[1])
+                    if !self.function.is_none() {
+                        if format!("{}", self.values[0]).len() > 3
+                            || format!("{}", self.values[1]).len() > 3
+                        {
+                            println!("branch 1");
+                            self.small_text = true;
+                            _value = format!(
+                                "{:.1e}{operator_string}{:.1e}",
+                                self.values[0], self.values[1]
+                            );
+                        } else {
+                            _value =
+                                format!("{}{operator_string}{}", self.values[0], self.values[1])
+                        }
+                    } else if self.function.is_none() {
+                        if format!("{}", self.values[0]).len() > 7
+                            || format!("{}", self.values[1]).len() > 7
+                        {
+                            println!("branch 2");
+                            self.small_text = true;
+                            _value = format!(
+                                "{:.3e}{operator_string}{:.3e}",
+                                self.values[0], self.values[1]
+                            );
+                        } else {
+                            _value =
+                                format!("{}{operator_string}{}", self.values[0], self.values[1])
+                        }
+                    }
                 }
             }
             match &self.function {
@@ -308,6 +379,7 @@ impl Calculator {
                 f64::INFINITY
             }
         };
+        self.small_text = false;
     }
 
     fn angle(&self, degrees: f64) -> f64 {
@@ -353,10 +425,10 @@ impl Calculator {
                             self.is_dec = false;
                             self.result = f64::NAN;
                             if possible_operator == "*" {
-                                self.display_result.push_str(&format!(" x"));
+                                self.display_result.push_str(&format!("x"));
                             } else {
                                 self.display_result
-                                    .push_str(&format!(" {}", possible_operator));
+                                    .push_str(&format!("{}", possible_operator));
                             }
                         } else if possible_operator == "." {
                             match self.is_dec {
@@ -376,6 +448,29 @@ impl Calculator {
                         false => {
                             self.buffer.pop();
                             if self.buffer == [] && !self.ops.is_none() {
+                                let mut buffer_values: Vec<i128> = Vec::new();
+                                let mut decbuf_values: Vec<i128> = Vec::new();
+                                let values_0 =
+                                    String::from(format!("{}", self.values[0].trunc() as i128));
+                                let values_1 = String::from(format!("{}", self.values[0]));
+                                for char in values_0.chars() {
+                                    buffer_values.push(String::from(char).parse::<i128>().unwrap())
+                                }
+                                if values_1.contains(".") {
+                                    for char in values_1.chars().rev() {
+                                        if char != '.' {
+                                            decbuf_values
+                                                .push(String::from(char).parse::<i128>().unwrap())
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    self.decbuf = decbuf_values;
+                                    self.decbuf.reverse();
+                                    self.is_dec = true;
+                                }
+                                self.buffer = buffer_values;
+                                self.vector_to_value();
                                 self.ops = None;
                             } else if self.buffer == []
                                 && self.ops.is_none()
@@ -415,7 +510,6 @@ impl Calculator {
     }
 
     fn vector_to_value(&mut self) {
-        //Need to implement this method in places where the old function was used
         let value_1 = self.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
 
         if self.is_dec == false && self.decbuf == Vec::new() {
@@ -452,5 +546,26 @@ impl Calculator {
             ) => Some(Message::KeyBoardButton(modified_key)),
             _ => None,
         })
+    }
+    fn font_size_picker(&self) -> Text<'_, Theme, Renderer>
+    where
+        Theme: iced_core::widget::text::Catalog,
+        Renderer: iced_core::text::Renderer,
+    {
+        text(&self.display_result)
+            .size(match self.small_text {
+                false => 45,
+                true => 28,
+            })
+            .align_x(Horizontal::Right)
+            .align_y(Vertical::Center)
+            .width(Length::Fixed(280.0))
+            .height(Length::Fixed(75.0))
+            .font(Font {
+                family: font::Family::Monospace,
+                weight: font::Weight::Bold,
+                stretch: font::Stretch::Normal,
+                style: font::Style::Normal,
+            })
     }
 }
