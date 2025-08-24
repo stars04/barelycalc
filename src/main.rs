@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use corefunctions::round;
 use iced::alignment::{Horizontal, Vertical};
 use iced::event::{self, Status};
