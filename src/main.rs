@@ -46,6 +46,9 @@ enum Function {
     Exp,
     Percent,
     Ln,
+    Squared,
+    Cubed,
+    SquareRoot,
 }
 
 #[derive(Debug, Clone)]
@@ -89,7 +92,7 @@ impl Default for Calculator {
     }
 }
 // KGD off white -> Some(Color::from_rgb(0.770, 0.785, 0.770))
-fn view(calculator: &Calculator) -> Element<Message> {
+fn view<'a>(calculator: &'a Calculator) -> Element<'a, Message> {
     container(
         column![
             row![
@@ -125,6 +128,21 @@ fn view(calculator: &Calculator) -> Element<Message> {
                 button(text("exp(x)").size(18).align_x(Horizontal::Center))
                     .width(Length::Fixed(70.0))
                     .on_press(Message::FunctionToggle(Function::Exp)),
+            ]
+            .spacing(3),
+            row![
+                button(text("x\u{00B2}").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Squared)),
+                button(text("x\u{00B3}").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Cubed)),
+                button(text("\u{221A}x").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::SquareRoot)),
+                button(text("ln(x)").size(18).align_x(Horizontal::Center))
+                    .width(Length::Fixed(70.0))
+                    .on_press(Message::FunctionToggle(Function::Ln)),
             ]
             .spacing(3),
             row![
@@ -340,6 +358,9 @@ impl Calculator {
                 Some(Function::Exp) => self.display_result = format!("exp({_value})"),
                 Some(Function::Percent) => self.display_result = format!("{_value}%"),
                 Some(Function::Ln) => self.display_result = format!("ln({_value})"),
+                Some(Function::Squared) => self.display_result = format!("{_value}\u{00B2}"),
+                Some(Function::Cubed) => self.display_result = format!("{_value}\u{00B3}"),
+                Some(Function::SquareRoot) => self.display_result = format!("\u{221A}{_value}"),
                 None => self.display_result = format!("{_value}"),
             }
         } else {
@@ -372,6 +393,9 @@ impl Calculator {
             Some(Function::Exp) => Ok(exp(value)),
             Some(Function::Percent) => Ok(value / 100.0),
             Some(Function::Ln) => Ok(log(value)),
+            Some(Function::Squared) => Ok(value.powi(2)),
+            Some(Function::Cubed) => Ok(value.powi(3)),
+            Some(Function::SquareRoot) => Ok(value.sqrt()),
             None => Ok(value),
         };
         self.result = match calc_result {
