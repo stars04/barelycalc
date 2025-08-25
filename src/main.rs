@@ -5,26 +5,22 @@ use iced::alignment::{Horizontal, Vertical};
 use iced::event::{self, Status};
 use iced::keyboard::{Event::KeyPressed, Key, key::Named};
 use iced::widget::{button, column, container, row, text};
-use iced::{Application, Border, Element, Font, Length, Renderer, Settings, Task};
-use iced_core::font;
-use iced_core::{Background, Color, Shadow, Theme, Vector, border, widget::text::Text};
-use libm::{cos, exp, log, sin, tan};
+use iced::{Border, Element, Font, Length, Renderer, Task};
+use iced_core::{Background, Color, Shadow, Theme, border, font, widget::text::Text};
+use libm::{cos, exp, log, sin};
 use std::f64::consts::PI;
-use std::io;
 mod corefunctions;
 //WIP
 fn main() -> iced::Result {
     iced::application("Calculator", update, view)
-        .window_size(iced::Size::new(310.0, 505.0))
+        .window_size(iced::Size::new(310.0, 525.0))
         .subscription(Calculator::subscription)
         .theme(|_s| iced::Theme::KanagawaDragon)
         .run()
 }
 
 #[derive(Debug)]
-enum Error {
-    Io(io::ErrorKind),
-}
+enum Error {}
 
 #[derive(Debug, Clone)]
 enum Message {
