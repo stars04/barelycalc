@@ -60,7 +60,7 @@ pub struct Calculator {
     values: [f64; 2],
     is_dec: bool,
     small_text: bool,
-    key_value: Option<Key>,
+    keyvalue: Option<Key>,
     buffer: Vec<i128>,
     decbuf: Vec<i128>,
     result: f64,
@@ -76,7 +76,7 @@ impl Default for Calculator {
             values: [0.0, 0.0],
             is_dec: false,
             small_text: false,
-            key_value: None,
+            keyvalue: None,
             function: None,
             buffer: Vec::new(),
             decbuf: Vec::new(),
@@ -223,13 +223,13 @@ fn view<'a>(calculator: &'a Calculator) -> Element<'a, Message> {
 fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
     match message {
         Message::KeyBoardButton(key) => {
-            calculator.key_value = Some(key);
-            calculator.insert_or_remove_value(None);
+            calculator.keyvalue = Some(key);
+            calculator.insert_or_removevalue(None);
             Task::none()
         }
         Message::InsertNumber(i128) => {
-            calculator.insert_or_remove_value(Some(i128));
-            calculator.vector_to_value();
+            calculator.insert_or_removevalue(Some(i128));
+            calculator.vector_tovalue();
             calculator.display();
             Task::none()
         }
@@ -240,8 +240,8 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
         }
         Message::Negative => {
             match &calculator.ops {
-                None => calculator.values[0] = calculator.values[0] * (-1.0),
-                Some(_operator) => calculator.values[1] = calculator.values[1] * (-1.0),
+                None => calculator.values[0] = -calculator.values[0],
+                Some(_operator) => calculator.values[1] = -calculator.values[1],
             }
             calculator.display();
             Task::none()
@@ -292,21 +292,27 @@ fn update(calculator: &mut Calculator, message: Message) -> Task<Message> {
 
 impl Calculator {
     fn display(&mut self) {
-        let mut _value = String::new();
-        if self.result.is_nan() == true {
+        let mut value = String::new();
+        if self.result.is_nan() {
             match &self.ops {
                 None => {
                     if format!("{}", self.values[0]).len() > 10 {
-                        _value = format!("{:.5e}", self.values[0]);
+
+                        value = format!("{:.5e}", self.values[0]);
+
                     } else if format!("{}", self.values[0]).len() > 5 && !self.function.is_none() {
-                        _value = format!("{:.5e}", self.values[0]);
+                        
+                        value = format!("{:.5e}", self.values[0]);
                         self.small_text = true;
+
+                    } else if !self.decbuf.is_empty(){
+
+                        value = format!("{:?}", self.values[0])
+
                     } else {
-                        if self.decbuf != [] {
-                            _value = format!("{:?}", self.values[0])
-                        } else {
-                            _value = format!("{}", self.values[0]);
-                        }
+
+                        value = format!("{}", self.values[0]);
+
                     }
                 }
                 Some(operator) => {
@@ -322,12 +328,12 @@ impl Calculator {
                         {
                             println!("branch 1");
                             self.small_text = true;
-                            _value = format!(
+                            value = format!(
                                 "{:.1e}{operator_string}{:.1e}",
                                 self.values[0], self.values[1]
                             );
                         } else {
-                            _value =
+                            value =
                                 format!("{}{operator_string}{}", self.values[0], self.values[1])
                         }
                     } else if self.function.is_none() {
@@ -336,32 +342,32 @@ impl Calculator {
                         {
                             println!("branch 2");
                             self.small_text = true;
-                            _value = format!(
+                            value = format!(
                                 "{:.3e}{operator_string}{:.3e}",
                                 self.values[0], self.values[1]
                             );
                         } else {
-                            _value =
+                            value =
                                 format!("{}{operator_string}{}", self.values[0], self.values[1])
                         }
                     }
                 }
             }
             match &self.function {
-                Some(Function::Sin) => self.display_result = format!("sin({_value})"),
-                Some(Function::Cos) => self.display_result = format!("cos({_value})"),
-                Some(Function::Tan) => self.display_result = format!("tan({_value})"),
-                Some(Function::Exp) => self.display_result = format!("exp({_value})"),
-                Some(Function::Percent) => self.display_result = format!("{_value}%"),
-                Some(Function::Ln) => self.display_result = format!("ln({_value})"),
-                Some(Function::Squared) => self.display_result = format!("{_value}\u{00B2}"),
-                Some(Function::Cubed) => self.display_result = format!("{_value}\u{00B3}"),
-                Some(Function::SquareRoot) => self.display_result = format!("\u{221A}{_value}"),
-                None => self.display_result = format!("{_value}"),
+                Some(Function::Sin) => self.display_result = format!("sin({value})"),
+                Some(Function::Cos) => self.display_result = format!("cos({value})"),
+                Some(Function::Tan) => self.display_result = format!("tan({value})"),
+                Some(Function::Exp) => self.display_result = format!("exp({value})"),
+                Some(Function::Percent) => self.display_result = format!("{value}%"),
+                Some(Function::Ln) => self.display_result = format!("ln({value})"),
+                Some(Function::Squared) => self.display_result = format!("{value}\u{00B2}"),
+                Some(Function::Cubed) => self.display_result = format!("{value}\u{00B3}"),
+                Some(Function::SquareRoot) => self.display_result = format!("\u{221A}{value}"),
+                None => self.display_result = value.to_string(),
             }
         } else {
-            _value = format!("{}", self.result);
-            self.display_result = format!("{_value}");
+            value = format!("{}", self.result);
+            self.display_result = value.to_string();
         };
     }
 
@@ -408,29 +414,29 @@ impl Calculator {
         degrees * (PI / 180.0)
     }
 
-    fn insert_or_remove_value(&mut self, integer: Option<i128>) {
+    fn insert_or_removevalue(&mut self, integer: Option<i128>) {
         match integer {
             Some(i128) => match self.is_dec {
                 false => {
                     self.buffer.push(i128);
-                    self.vector_to_value();
+                    self.vector_tovalue();
                     self.display();
                 }
                 true => {
                     self.decbuf.push(i128);
-                    self.vector_to_value();
+                    self.vector_tovalue();
                     self.display();
                 }
             },
-            None => match self.key_value.as_ref() {
+            None => match self.keyvalue.as_ref() {
                 Some(Key::Character(c)) => match c.parse::<i128>() {
-                    Ok(i128) => self.insert_or_remove_value(Some(i128)),
+                    Ok(i128) => self.insert_or_removevalue(Some(i128)),
                     Err(err) => {
                         println!(
                             "Not an integer when parsed {:?}\n checking if key is an operator",
                             err
                         );
-                        let possible_operator = match self.key_value.as_ref() {
+                        let possible_operator = match self.keyvalue.as_ref() {
                             Some(Key::Character(c)) => c.as_ref(),
                             _ => "",
                         };
@@ -447,10 +453,10 @@ impl Calculator {
                             self.is_dec = false;
                             self.result = f64::NAN;
                             if possible_operator == "*" {
-                                self.display_result.push_str(&format!("x"));
+                                self.display_result.push('x');
                             } else {
                                 self.display_result
-                                    .push_str(&format!("{}", possible_operator));
+                                    .push_str(possible_operator);
                             }
                         } else if possible_operator == "." {
                             match self.is_dec {
@@ -469,46 +475,54 @@ impl Calculator {
                     match self.is_dec {
                         false => {
                             self.buffer.pop();
-                            if self.buffer == [] && !self.ops.is_none() {
-                                let mut buffer_values: Vec<i128> = Vec::new();
-                                let mut decbuf_values: Vec<i128> = Vec::new();
-                                let values_0 =
-                                    String::from(format!("{}", self.values[0].trunc() as i128));
-                                let values_1 = String::from(format!("{}", self.values[0]));
+                            if self.buffer.is_empty() && self.ops.is_some() {
+                                let mut buffervalues: Vec<i128> = Vec::new();
+                                let mut decbufvalues: Vec<i128> = Vec::new();
+
+                                let values_0 = format!("{}", self.values[0].trunc() as i128);
+                                let values_1 = format!("{}", self.values[0]);
+
                                 for char in values_0.chars() {
-                                    buffer_values.push(String::from(char).parse::<i128>().unwrap())
+
+                                    buffervalues.push(String::from(char).parse::<i128>().unwrap())
+
                                 }
                                 if values_1.contains(".") {
+
                                     for char in values_1.chars().rev() {
+
                                         if char != '.' {
-                                            decbuf_values
-                                                .push(String::from(char).parse::<i128>().unwrap())
+                                            decbufvalues
+                                                .push(String::from(char)
+                                                .parse::<i128>().unwrap())
                                         } else {
+
                                             break;
+
                                         }
                                     }
-                                    self.decbuf = decbuf_values;
+                                    self.decbuf = decbufvalues;
                                     self.decbuf.reverse();
                                     self.is_dec = true;
                                 }
-                                self.buffer = buffer_values;
-                                self.vector_to_value();
+                                self.buffer = buffervalues;
+                                self.vector_tovalue();
                                 self.ops = None;
-                            } else if self.buffer == []
+                            } else if self.buffer.is_empty()
                                 && self.ops.is_none()
                                 && self.values[0] == 0.0
                             {
                                 self.function = None;
                             } else {
-                                self.vector_to_value();
+                                self.vector_tovalue();
                             }
                         }
                         true => {
                             self.decbuf.pop();
-                            if self.decbuf == [] {
+                            if self.decbuf.is_empty() {
                                 self.is_dec = false;
                             } else {
-                                self.vector_to_value();
+                                self.vector_tovalue();
                             }
                         }
                     }
@@ -531,20 +545,20 @@ impl Calculator {
         }
     }
 
-    fn vector_to_value(&mut self) {
+    fn vector_tovalue(&mut self) {
         let value_1 = self.buffer.iter().fold(0, |acc, x| acc * 10 + x) as f64;
 
-        if self.is_dec == false && self.decbuf == Vec::new() {
+        if !self.is_dec && self.decbuf == Vec::new() {
             match &self.ops {
                 None => self.values[0] = value_1,
                 Some(_operator) => self.values[1] = value_1,
             }
-        } else if self.is_dec == true || self.decbuf != Vec::new() {
+        } else if self.is_dec || self.decbuf != Vec::new() {
             let value_2 = self.decbuf.iter().fold(0, |acc, x| acc * 10 + x) as f64;
 
             let power_of_ten: f64 = 10_i128.pow(self.decbuf.len() as u32) as f64;
-            let decimal_values = value_2 / power_of_ten;
-            let decimal_result = value_1 + decimal_values;
+            let decimalvalues = value_2 / power_of_ten;
+            let decimal_result = value_1 + decimalvalues;
 
             match &self.ops {
                 None => self.values[0] = decimal_result,
