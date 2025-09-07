@@ -95,7 +95,7 @@ fn view<'a>(calculator: &'a Calculator) -> Element<'a, Message> {
                 container(calculator.font_size_picker())
                     .padding(5)
                     .style(|_| container::Style {
-                        text_color: Some(Color::from_rgb(0.0, 0.0, 0.0)),
+                        text_color: Some(Color::from_rgb8(0, 0, 0)),
                         background: Some(Background::Color(Color::from_rgb(0.656, 0.773, 0.305))),
                         border: Border {
                             color: Color::from_rgb(0.133, 0.195, 0.285),
@@ -297,22 +297,14 @@ impl Calculator {
             match &self.ops {
                 None => {
                     if format!("{}", self.values[0]).len() > 10 {
-
                         value = format!("{:.5e}", self.values[0]);
-
                     } else if format!("{}", self.values[0]).len() > 5 && !self.function.is_none() {
-                        
                         value = format!("{:.5e}", self.values[0]);
                         self.small_text = true;
-
-                    } else if !self.decbuf.is_empty(){
-
+                    } else if !self.decbuf.is_empty() {
                         value = format!("{:?}", self.values[0])
-
                     } else {
-
                         value = format!("{}", self.values[0]);
-
                     }
                 }
                 Some(operator) => {
@@ -322,7 +314,7 @@ impl Calculator {
                         Operator::Mul => "x".to_string(),
                         Operator::Div => "/".to_string(),
                     };
-                    if !self.function.is_none() {
+                    if self.function.is_some() {
                         if format!("{}", self.values[0]).len() > 3
                             || format!("{}", self.values[1]).len() > 3
                         {
@@ -333,12 +325,11 @@ impl Calculator {
                                 self.values[0], self.values[1]
                             );
                         } else {
-                            value =
-                                format!("{}{operator_string}{}", self.values[0], self.values[1])
+                            value = format!("{}{operator_string}{}", self.values[0], self.values[1])
                         }
                     } else if self.function.is_none() {
-                        if format!("{}", self.values[0]).len() > 7
-                            || format!("{}", self.values[1]).len() > 7
+                        if self.values[0].to_string().len() > 7
+                            || self.values[1].to_string().len() > 7
                         {
                             println!("branch 2");
                             self.small_text = true;
@@ -347,8 +338,7 @@ impl Calculator {
                                 self.values[0], self.values[1]
                             );
                         } else {
-                            value =
-                                format!("{}{operator_string}{}", self.values[0], self.values[1])
+                            value = format!("{}{operator_string}{}", self.values[0], self.values[1])
                         }
                     }
                 }
@@ -455,8 +445,7 @@ impl Calculator {
                             if possible_operator == "*" {
                                 self.display_result.push('x');
                             } else {
-                                self.display_result
-                                    .push_str(possible_operator);
+                                self.display_result.push_str(possible_operator);
                             }
                         } else if possible_operator == "." {
                             match self.is_dec {
@@ -483,22 +472,15 @@ impl Calculator {
                                 let values_1 = format!("{}", self.values[0]);
 
                                 for char in values_0.chars() {
-
                                     buffervalues.push(String::from(char).parse::<i128>().unwrap())
-
                                 }
                                 if values_1.contains(".") {
-
                                     for char in values_1.chars().rev() {
-
                                         if char != '.' {
                                             decbufvalues
-                                                .push(String::from(char)
-                                                .parse::<i128>().unwrap())
+                                                .push(String::from(char).parse::<i128>().unwrap())
                                         } else {
-
                                             break;
-
                                         }
                                     }
                                     self.decbuf = decbufvalues;
